@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "infra-frontend",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-12-01",
+  // nodejs_compat: Next needs Node built-ins.
+  // global_fetch_strictly_public: makes fetch() to our own domain go out to the
+  // internet rather than looping back inside the Worker.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "infra-frontend"
+    }
+  ],
+  "vars": {
+    // Cloud Run URL of infra-api. Not a secret — it is a public HTTPS endpoint.
+    // Override per environment with `wrangler deploy --var API_BASE_URL:...`
+    "API_BASE_URL": "https://REPLACE-ME.run.app"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
