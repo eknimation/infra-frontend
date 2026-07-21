@@ -1,0 +1,45 @@
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # Type errors fail `next build`, so this doubles as the type check.
+      - name: Build Worker bundle
+        run: npm run cf:build
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # cf:build already produced .open-next; only upload it.
+          command: deploy
+
+      - name: Smoke test the deployment
+        run: |
+          url=https://infra-frontend.eknimation.workers.dev
+          # A brand-new Worker version takes a moment to reach every edge
+          # location, so retry rather than failing the first miss.
+          for endpoint in / /api/message; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --retry 5 --retry-all-errors --retry-delay 5 "${url}${endpoint}")
+            echo "$endpoint -> $code"
+            [ "$code" = "200" ] || exit 1
+          done
